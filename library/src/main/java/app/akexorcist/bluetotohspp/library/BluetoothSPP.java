@@ -16,9 +16,6 @@
 
 package app.akexorcist.bluetotohspp.library;
 
-import java.util.ArrayList;
-import java.util.Set;
-
 import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -28,6 +25,9 @@ import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
 import android.widget.Toast;
+
+import java.util.ArrayList;
+import java.util.Set;
 
 @SuppressLint("NewApi")
 public class BluetoothSPP {
@@ -150,6 +150,7 @@ public class BluetoothSPP {
             isServiceRunning = false;
             mChatService.stop();
         }
+        //todo: why the fuckk there is a delay fr same command
         new Handler().postDelayed(new Runnable() {
             public void run() {
                 if (mChatService != null) {
@@ -325,38 +326,45 @@ public class BluetoothSPP {
             keyword = keywordName;
             isAutoConnectionEnabled = true;
             isAutoConnecting = true;
-            if(mAutoConnectionListener != null)
+            if (mAutoConnectionListener != null)
                 mAutoConnectionListener.onAutoConnectionStarted();
             final ArrayList<String> arr_filter_address = new ArrayList<String>();
             final ArrayList<String> arr_filter_name = new ArrayList<String>();
             String[] arr_name = getPairedDeviceName();
             String[] arr_address = getPairedDeviceAddress();
-            for(int i = 0 ; i < arr_name.length ; i++) {
-                if(arr_name[i].contains(keywordName)) {
-                    arr_filter_address.add(arr_address[i]);
-                    arr_filter_name.add(arr_name[i]);
+            for (int i = 0; i < arr_name.length; i++) {
+                try {
+                    if (arr_name[i].contains(keywordName)) {
+                        arr_filter_address.add(arr_address[i]);
+                        arr_filter_name.add(arr_name[i]);
+                    }
+                } catch (NullPointerException e) {
+                    //todo:ignore--> but we should log this. Usually happens if the paired device does not have a name
                 }
             }
-    
+
             bcl = new BluetoothConnectionListener() {
                 public void onDeviceConnected(String name, String address) {
                     bcl = null;
                     isAutoConnecting = false;
                 }
-    
-                public void onDeviceDisconnected() { }
+
+                public void onDeviceDisconnected() {
+                }
+
                 public void onDeviceConnectionFailed() {
-                	Log.e("CHeck", "Failed");
-                    if(isServiceRunning) {
-                        if(isAutoConnectionEnabled) {
+                    Log.e("CHeck", "Failed");
+                    if (isServiceRunning) {
+                        if (isAutoConnectionEnabled) {
                             c++;
-                            if(c >= arr_filter_address.size())
+                            if (c >= arr_filter_address.size())
                                 c = 0;
                             connect(arr_filter_address.get(c));
-                        	Log.e("CHeck", "Connect");
-                            if(mAutoConnectionListener != null)
+                            Log.e("CHeck", "Connect");
+                            if (mAutoConnectionListener != null) {
                                 mAutoConnectionListener.onNewConnection(arr_filter_name.get(c)
-                                    , arr_filter_address.get(c));
+                                        , arr_filter_address.get(c));
+                            }
                         } else {
                             bcl = null;
                             isAutoConnecting = false;
@@ -367,12 +375,20 @@ public class BluetoothSPP {
 
             setBluetoothConnectionListener(bcl);
             c = 0;
-            if(mAutoConnectionListener != null)
-                mAutoConnectionListener.onNewConnection(arr_name[c], arr_address[c]);
-            if(arr_filter_address.size() > 0) 
+            try {
+                if (mAutoConnectionListener != null) {
+                    //TODO: confirm bug https://github.com/akexorcist/Android-BluetoothSPPLibrary/issues/4
+                    mAutoConnectionListener.onNewConnection(arr_name[c], arr_address[c]);
+                }
+            } catch (ArrayIndexOutOfBoundsException e2) {
+                //this happens if autoconnect is enabled  and no device is paired
+            }
+            if (arr_filter_address.size() > 0) {
                 connect(arr_filter_address.get(c));
-            else 
+            } else {
                 Toast.makeText(mContext, "Device name mismatch", Toast.LENGTH_SHORT).show();
+            }
         }
+
     }
 }
